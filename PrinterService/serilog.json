@@ -1,0 +1,36 @@
+{
+  "Serilog": {
+    "MinimumLevel": { "Default": "Debug" },
+    "Enrich": [
+      "FromLogContext",
+      "WithMachineName",
+      "WithEnvironmentName",
+      "WithEnvironmentUserName",
+      "WithProcessName",
+      "WithExceptionDetails",
+      "WithClientIp",
+      {
+        "Name": "WithCorrelationId",
+        "Args": {
+          "headerName": "correlation-id",
+          "addValueIfHeaderAbsence": true
+        }
+      }
+    ],
+    "WriteTo": [
+      { "Name": "Console" },
+      {
+        "Name": "File",
+        "Args": {
+          "path": "%PROGRAMDATA%\\AARFID\\PrinterService\\PrinterService-.log",
+          "rollingInterval": "Day",
+          "rollOnFileSizeLimit": true,
+          "fileSizeLimitBytes": 104857600,
+          "retainedFileTimeLimit": "15.00:00:00",
+          "buffered": false,
+          "formatter": "Serilog.Formatting.Compact.CompactJsonFormatter, Serilog.Formatting.Compact"
+        }
+      }
+    ]
+  }
+}

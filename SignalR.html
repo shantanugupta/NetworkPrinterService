@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SignalR Client with JSON Input</title>
+    <!-- Add the SignalR client library from CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/6.0.0/signalr.min.js"></script>
+</head>
+
+<body>
+    <h1>SignalR Client</h1>
+    <div>
+        <input type="text" id="searchField" />
+        </br>
+        <label>JSON Input:</label><br>
+        <textarea id="jsonInput" rows="5" cols="50">
+        {
+            "printerId": "Printer A",
+            "template": "Member card",
+            "printData": "Elon Musk"
+        }
+        </textarea><br>
+        <button onclick="onConnectClick()">Connect</button>
+        <button onclick="onSubmitPrintJob()">Submit Print Job</button>
+        <button onclick="onClear()">Clear</button>
+
+        <button onclick="Invoke('GetSubmittedJobs')">Get All Jobs</button>
+        <button onclick="Invoke('GetSubmittedJobs')">Get Jobs of Printer</button>
+        <button onclick="Invoke('GetPrinterStatus')">Get Printer Status</button>
+
+        <button onclick="Invoke('CancelAllJobs')">Cancel all jobs</button>
+        <button onclick="Invoke('CancelJob')">Cancel jobId</button>
+        <button onclick="Invoke('CancelAllJobs')">Cancel job by printer</button>
+    </div>
+
+    <h2>Job Status Updates:</h2>
+    <pre id="jobUpdates"></pre>
+
+    <script>
+        function generateCorrelationId() {
+            return ([1e7] + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, c =>
+                (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
+            );
+        }
+
+        const userGuid = crypto.randomUUID();
+        const jobUpdates = document.getElementById("jobUpdates");
+        const searchField = document.getElementById("searchField");
+
+        // Connect to the SignalR hub
+        const connection = new signalR.HubConnectionBuilder()
+            .withUrl(`http://localhost:5000/hubs/print?userGuid=${userGuid}`
+                //, { accessTokenFactory: () => userGuid }
+            ) // Update URL if needed
+            .configureLogging(signalR.LogLevel.Information)
+            .build();
+
+        connection.onclose(async () => {
+            jobUpdates.innerText += `Disconnected. Attempting to reconnect...\n`;
+            await startConnection();
+        });
+
+        // Listen for Job Status Updates from the hub
+        connection.on("JobStatusUpdate", (json) => {
+            if (json.jobId === undefined)
+                jobUpdates.innerText += `${json}\n`;
+            else
+                jobUpdates.innerText += `Printer: ${json.printerId}, Job ID: ${json.jobId.slice(0, 8)}, Status: ${json.status}, User ID: ${json.userId.slice(0, 8)}, Connection ID: ${json.connectionId.slice(0, 8)}, Data: ${json.printData}\n`;
+        });
+
+        async function Invoke(methodName) {
+            const parameter = searchField.value;
+            msg = `Method: ${methodName}, parameter: ${parameter}`;
+
+            try {
+
+                console.log(msg);
+                jobUpdates.innerText += `${msg}\n`;
+                const correlationId = generateCorrelationId(); // Generate a GUID
+                // Call the SubmitPrintJob method on the hub
+                let jobId = await connection.invoke(methodName, parameter, correlationId);
+
+                if (jobId !== undefined && jobId && typeof jobId === "object" && !Array.isArray(jobId)) {
+                    for (const [jobIdkey, details] of Object.entries(jobId)) {
+
+                        if (methodName === "GetPrinterStatus") {
+                            jobUpdates.innerText += `Printer ID: ${jobIdkey}, Printer status: ${details}\n`;
+                        } else
+                            jobUpdates.innerText += `Job ID: ${jobIdkey}, Printer ID: ${details.printerId}\n`;
+                    }
+                } else {
+                    jobUpdates.innerText += `Response with job Object: ${jobId}\n`;
+                }
+            } catch (err) {
+                alert("Invalid JSON input or error in cancelling job: " + err.message);
+            }
+        }
+
+        // Start the connection and handle connection errors
+        async function startConnection() {
+            try {
+                if (connection.state === signalR.HubConnectionState.Disconnected) {
+                    await connection.start()
+                        .then(() => console.log("Connected with GUID:", userGuid))
+                        .catch((err) => console.error("Error connecting:", err));
+                    console.log("Connected to the SignalR hub.");
+
+                    jobUpdates.innerText += `Connection ID: ${connection.connectionId}\n`;
+                }
+            } catch (err) {
+                console.error("Error connecting to the SignalR hub:", err);
+                setTimeout(startConnection, 5000); // Retry connection every 5 seconds
+            }
+        }
+
+        async function onConnectClick() {
+            await startConnection();
+        }
+
+        // Function to submit a print job to the hub using JSON input
+        async function onSubmitPrintJob() {
+            const jsonInput = document.getElementById("jsonInput").value;
+
+            try {
+                const correlationId = generateCorrelationId(); // Generate a GUID
+                // Parse JSON input
+                const jobData = JSON.parse(jsonInput);
+
+                // Validate required fields
+                if (!jobData.PrinterId || !jobData.PrintData) {
+                    throw new Error("JSON input must contain 'PrinterId', 'template', and 'PrintData'.");
+                }
+
+                // Call the SubmitPrintJob method on the hub
+                const job = await connection.invoke("SubmitPrintJob", jobData, correlationId);
+                // Display the submitted job ID
+                jobUpdates.innerText += `Job Submitted with ID: ${job.jobId}\n`;
+            } catch (err) {
+                console.error("Error submitting print job:", err);
+                alert("Invalid JSON input or error in submitting job: " + err.message);
+            }
+        }
+
+        function onClear() {
+            jobUpdates.innerHTML = "";
+        }
+    </script>
+</body>
+
+</html>

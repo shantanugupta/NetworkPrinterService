@@ -1,0 +1,17 @@
+.vs
+*bin
+*obj
+*.dll
+*.cd
+Enum.cs
+appsettings.json
+Controller
+dll
+# Ignore everything in the folder
+Devices/Printers/*
+
+# Allow specific files
+!Devices/Printers/AbstractPrinter.cs
+!Devices/Printers/PrinterSettings.cs
+PrinterClient
+PrinterService/MemberTemplate.json
