@@ -14,6 +14,10 @@ e.g. If all of the below jobs are submitted in one shot.
 
 Printer A will pick Job 1 -> 2 -> 3 as it becomes available. Similarly rest of the printers work in parallel based on their queue.
 
+[Architecture diagram](https://drive.google.com/file/d/1PY8mmKFQPo-miwNVcF1e8WYYq3GCEQlZ/view?usp=sharing)
+![Architecture diagram](PrinterService.drawio.svg)
+
+
 ## Core components
 
 1. [Worker service](PrinterService/Worker.cs)
@@ -106,4 +110,17 @@ Below is a screenshot of various methods exposed from signalR to control the job
 
 
 Project in action
-![Actual client application](assets/WebApp.png)
+
+Printing page
+![Printing page](assets/WebApp.png)
+
+Job status
+![Job status](assets/PrinterStatus.png)
+
+Service level status
+![Service level status](assets/ServiceLevelLogs.png)
+
+
+There are two more components that are taken out of this repo. 
+1. Angular component whose screenshots are attached here.
+2. PrinterClient - A background worker which listens to requests from Azure service bus and submits it to this component for printing.
